@@ -1,0 +1,22 @@
+Engine-annotated game vs anka46-09 (2026.07.03), I played white, result 1-0. Opening: D00.
+My move quality: 4 blunders, 6 mistakes, 7 inaccuracies across 52 moves.
+Flagged moves (mine only), with phase, win-probability cost, and pawn-structure context:
+- [Opening] 5.b3 — Inaccuracy (+1.43 → +0.76, -5.9% win prob), better was Bd3, second choice c4. Material after: +0, pawn structure: 0 doubled / 0 isolated. [heuristic type: Positional / plan]
+- [Opening] 6.Qd2 — Inaccuracy (+1.09 → +0.17, -8.3% win prob), better was Nbd2, second choice c3. Material after: +0, pawn structure: 0 doubled / 0 isolated. [heuristic type: Positional / plan]
+- [Opening] 9.h4 — Inaccuracy (+0.81 → +0.26, -5.0% win prob), better was Bd3, second choice c4. Material after: +0, pawn structure: 0 doubled / 0 isolated. [heuristic type: Positional / plan]
+- [Middlegame] 16.Rh7 — Inaccuracy (+0.14 → -0.75, -8.1% win prob), better was Bxb8, second choice Bh2. Material after: +0, pawn structure: 0 doubled / 0 isolated. [heuristic type: Missed material / tactic]
+- [Middlegame] 17.e4 — Inaccuracy (-0.45 → -1.11, -5.9% win prob), better was Bxb8, second choice Rh1. Material after: +0, pawn structure: 0 doubled / 0 isolated. [heuristic type: Missed material / tactic]
+- [Middlegame] 23.d5 — Blunder (+0.14 → -2.51, -22.9% win prob), better was g4, second choice a3. Material after: +0, pawn structure: 1 doubled / 2 isolated. [heuristic type: Tactical error]
+- [Middlegame] 25.d6 — Inaccuracy (-2.08 → -2.86, -5.9% win prob), better was Ne3, second choice Kd2. Material after: +0, pawn structure: 1 doubled / 3 isolated. [heuristic type: Positional / plan]
+- [Middlegame] 27.Kd2 — Mistake (-2.09 → -4.35, -14.9% win prob), better was Kb2, second choice Kc2. Material after: -1, pawn structure: 1 doubled / 1 isolated. [heuristic type: King safety]
+- [Middlegame] 28.g4 — Mistake (-2.37 → -4.43, -13.1% win prob), better was Nc4, second choice Rb1. Material after: -1, pawn structure: 1 doubled / 1 isolated. [heuristic type: Positional / plan]
+- [Middlegame] 29.Rd1 — Inaccuracy (-1.72 → -2.51, -6.3% win prob), better was Nf5, second choice Nd4. Material after: -1, pawn structure: 1 doubled / 1 isolated. [heuristic type: Positional / plan]
+- [Middlegame] 31.Ra1 — Blunder (-0.09 → -2.76, -22.6% win prob), better was Ke2, second choice Ke1. Material after: -1, pawn structure: 1 doubled / 1 isolated. [heuristic type: Tactical error]
+- [Middlegame] 32.Nb5 — Mistake (-0.32 → -2.20, -16.3% win prob), better was Ne4, second choice Nb5. Material after: -1, pawn structure: 1 doubled / 1 isolated. [heuristic type: Positional / plan]
+- [Middlegame] 33.Kd3 — Mistake (-0.66 → -2.82, -17.8% win prob), better was Ke2, second choice Ke3. Material after: -1, pawn structure: 1 doubled / 1 isolated. [heuristic type: King safety]
+- [Middlegame] 34.Ra4 — Mistake (-1.06 → -3.66, -19.7% win prob), better was Ra2, second choice Ke2. Material after: -1, pawn structure: 1 doubled / 1 isolated. [heuristic type: Positional / plan]
+- [Middlegame] 35.Kc4 — Blunder (-0.09 → -2.69, -22.1% win prob), better was Ke2, second choice Ra2. Material after: -1, pawn structure: 1 doubled / 1 isolated. [heuristic type: King safety]
+- [Middlegame] 37.Nf5 — Mistake (-0.60 → -2.55, -16.4% win prob), better was Nc6, second choice Ra2. Material after: -1, pawn structure: 1 doubled / 1 isolated. [heuristic type: Positional / plan]
+- [Endgame] 51.Kf5 — Blunder (-0.03 → -5.25, -37.1% win prob), better was Ke3, second choice Kd3. Material after: -1, pawn structure: 0 doubled / 1 isolated. [heuristic type: King safety]
+Costliest single move: 51.Kf5, -37.1% win probability.
+Please give me the same kind of specific, ranked "what to work on" coaching breakdown as before, using this data instead of re-deriving it.
