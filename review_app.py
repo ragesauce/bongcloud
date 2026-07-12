@@ -13,6 +13,7 @@ from __future__ import annotations
 import os
 import sys
 import threading
+import time
 
 import chess
 import chess.engine
@@ -37,12 +38,23 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+import analysis_cache
 from board_widget import BoardWidget, PieceRenderer
 from chesscom_import_dialog import ChessComImportDialog
 from engine_analysis import analyze_game, find_engine
+from eta_format import format_eta
 import game_history
 import player_identity
-from pgn_loader import MoveRecord, chesscom_link, has_eval_annotations, load_game, load_games
+from pgn_loader import (
+    MoveRecord,
+    _build_records,
+    chesscom_link,
+    game_has_eval_annotations,
+    has_eval_annotations,
+    load_game,
+    opening_name_from_eco_url,
+    read_games,
+)
 from progress_dialog import ProgressDialog
 from puzzle_trainer import PuzzleTrainerDialog
 from scoresheet import win_percent_white
@@ -214,6 +226,7 @@ class ReviewWindow(QMainWindow):
         self.black_name = "?"
         self.engine_path: str | None = None
         self.analysis_thread: AnalysisWorker | None = None
+        self._analysis_start_time: float = 0.0
         self.progress_dialog: QProgressDialog | None = None
         self.summary_panel: SummaryPanel | None = None
         self.puzzle_dialog: PuzzleTrainerDialog | None = None
@@ -229,6 +242,7 @@ class ReviewWindow(QMainWindow):
         self.header_label.setWordWrap(True)
         self.header_label.setFont(QFont("Segoe UI", 12))
         self.header_label.setStyleSheet(f"color: {_TEXT_PRIMARY}; padding-bottom: 2px; background: transparent;")
+        self.header_label.setOpenExternalLinks(True)
 
         self.chesscom_link_btn = QPushButton("View on Chess.com ↗")
         self.chesscom_link_btn.setStyleSheet(_BUTTON_STYLE)
@@ -417,7 +431,15 @@ class ReviewWindow(QMainWindow):
             game_history.save_history(history)
         result = game.headers.get("Result", "*")
         eco = game.headers.get("ECO", "")
-        self.header_label.setText(f"<b>{self.white_name}</b> vs <b>{self.black_name}</b>  ({result})<br/>ECO {eco}")
+        eco_url = (game.headers.get("ECOUrl") or "").strip()
+        header_html = f"<b>{self.white_name}</b> vs <b>{self.black_name}</b>  ({result})"
+        if eco:
+            opening_name = opening_name_from_eco_url(eco_url) if eco_url else None
+            eco_line = f"ECO {eco}"
+            if eco_url:
+                eco_line += f": <a href=\"{eco_url}\" style=\"color: #3aa8ff;\">{opening_name or 'view opening'}</a>"
+            header_html += f"<br/>{eco_line}"
+        self.header_label.setText(header_html)
 
         self._build_move_table(records)
         self._rebuild_summary_panel(records)
@@ -528,6 +550,7 @@ class ReviewWindow(QMainWindow):
         self.progress_dialog.show()
 
         limit = chess.engine.Limit(time=0.2)
+        self._analysis_start_time = time.monotonic()
         self.analysis_thread = AnalysisWorker(path, engine_path, limit)
         self.analysis_thread.progress.connect(self._on_analysis_progress)
         self.analysis_thread.finished_ok.connect(self._on_analysis_finished)
@@ -540,7 +563,8 @@ class ReviewWindow(QMainWindow):
             return
         self.progress_dialog.setMaximum(total)
         self.progress_dialog.setValue(done)
-        self.progress_dialog.setLabelText(f"Analyzing move {done}/{total}...")
+        eta = format_eta(self._analysis_start_time, done, total)
+        self.progress_dialog.setLabelText(f"Analyzing move {done}/{total}...{eta}")
 
     def _on_analysis_finished(self, game, records):
         if self.progress_dialog:
@@ -579,11 +603,34 @@ class ReviewWindow(QMainWindow):
             QDesktopServices.openUrl(QUrl(self._chesscom_link))
 
     def _open_game_and_jump(self, path: str, game_index: int, ply_index: int):
-        games = load_games(path)
+        games = read_games(path)
         if game_index >= len(games):
             return
-        game, records = games[game_index]
+        game = games[game_index]
+        records = self._load_records_for_jump(game)
         self._show_game_at(game, records, ply_index)
+        # The Weakness Report window has this window as its parent, which on
+        # most platforms keeps it stacked above us - raising/activating the
+        # main window alone doesn't get it out of the way, so hide it
+        # explicitly instead of leaving it covering the game we just jumped to.
+        if self.weakness_dialog is not None:
+            self.weakness_dialog.hide()
+
+    @staticmethod
+    def _load_records_for_jump(game: "chess.pgn.Game") -> list[MoveRecord]:
+        """Weakness Report games analyzed fresh (no [%eval] in the PGN on
+        disk) never get their Stockfish output written back into the file -
+        it only ever lived in memory and in analysis_cache. Re-parsing the
+        file straight through _build_records for those would silently see no
+        eval data at all (a flatlined chart, every move "Best"), so recall
+        the cached analysis first and only fall back to the file's own
+        annotations - or nothing - if it isn't there."""
+        if game_has_eval_annotations(game):
+            return _build_records(game)
+        cached = analysis_cache.get_cached_records(analysis_cache.load_cache(), game)
+        if cached is not None:
+            return cached
+        return _build_records(game)
 
     def _show_game_at(self, game: "chess.pgn.Game", records: list[MoveRecord], ply_index: int):
         self._populate(game, records)

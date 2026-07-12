@@ -25,6 +25,7 @@ import chess
 import chess.engine
 import chess.pgn
 
+import analysis_cache
 from pgn_loader import MoveRecord, _estimate_phase, attach_refutations
 from scoresheet import Eval, generate_commentary
 
@@ -67,6 +68,13 @@ def _score_to_eval(score: chess.engine.PovScore) -> Eval:
     white_score = score.white()
     mate = white_score.mate()
     if mate is not None:
+        # A just-delivered checkmate (a win) and being checkmated (a loss)
+        # both report mate() == 0 - plain ints have no signed zero, so
+        # python-chess distinguishes them by type (MateGiven vs Mate)
+        # instead. Losing that distinction here made the winning side's
+        # own mating move look like their worst blunder of the game.
+        if mate == 0:
+            mate = 1 if isinstance(white_score, chess.engine.MateGivenType) else -1
         return Eval(mate=mate)
     return Eval(cp=white_score.score())
 
@@ -159,8 +167,17 @@ def analyze_game(
     if game is None:
         raise ValueError(f"No game found in {path}")
 
+    cache = analysis_cache.load_cache()
+    cached = analysis_cache.get_cached_records(cache, game)
+    if cached is not None:
+        return game, cached
+
     with chess.engine.SimpleEngine.popen_uci(engine_path) as engine:
         records = _analyze_game(game, engine, limit, progress_callback, should_stop)
+
+    if should_stop is None or not should_stop():
+        analysis_cache.store_records(cache, game, records)
+        analysis_cache.save_cache(cache)
     return game, records
 
 
@@ -173,19 +190,40 @@ def analyze_games(
 ) -> list[list[MoveRecord]]:
     """Analyzes several already-parsed games with one shared engine process,
     instead of spinning up a fresh Stockfish per game - used to batch-analyze
-    raw games for the Weakness Report.
+    raw games for the Weakness Report. Games already in analysis_cache are
+    recalled instead of re-analyzed; the engine process is only started once
+    at least one game actually needs it.
 
     progress_callback receives (games_done, games_total, moves_done_in_game,
     moves_total_in_game).
     """
+    cache = analysis_cache.load_cache()
     results: list[list[MoveRecord]] = []
-    with chess.engine.SimpleEngine.popen_uci(engine_path) as engine:
+    engine: Optional["chess.engine.SimpleEngine"] = None
+    try:
         for gi, game in enumerate(games):
             if should_stop is not None and should_stop():
                 break
+
+            cached = analysis_cache.get_cached_records(cache, game)
+            if cached is not None:
+                results.append(cached)
+                if progress_callback is not None:
+                    progress_callback(gi, len(games), len(cached), len(cached))
+                continue
+
+            if engine is None:
+                engine = chess.engine.SimpleEngine.popen_uci(engine_path)
             per_move_cb = None
             if progress_callback is not None:
                 per_move_cb = lambda done, total, gi=gi: progress_callback(gi, len(games), done, total)
             records = _analyze_game(game, engine, limit, progress_callback=per_move_cb, should_stop=should_stop)
             results.append(records)
+
+            if should_stop is None or not should_stop():
+                analysis_cache.store_records(cache, game, records)
+                analysis_cache.save_cache(cache)
+    finally:
+        if engine is not None:
+            engine.quit()
     return results

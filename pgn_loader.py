@@ -104,6 +104,35 @@ def chesscom_link(game: chess.pgn.Game) -> Optional[str]:
     return None
 
 
+_ECO_URL_MOVE_TOKEN_RE = re.compile(r"^\d+\.{1,3}")
+
+# Chess.com's opening-name slugs drop apostrophes rather than encode them -
+# only the handful of possessive names common enough to actually show up are
+# worth fixing back up; anything else just reads a little flatter than the
+# "real" name.
+_ECO_URL_POSSESSIVE_FIXUPS = {
+    "Birds": "Bird's",
+    "Bishops": "Bishop's",
+    "Kings": "King's",
+    "Queens": "Queen's",
+}
+
+
+def opening_name_from_eco_url(eco_url: str) -> Optional[str]:
+    """Chess.com's [ECOUrl ...] header doubles as the opening name, encoded
+    as a hyphenated slug that ends with the move sequence reaching it (e.g.
+    ".../Queens-Pawn-Opening-Zukertort-Chigorin-Variation-3.Bf4-Bf5-4.e3-e6")
+    - there's no separate [Opening ...] header to read it from directly, so
+    recovering the name means trimming that trailing move list back off."""
+    slug = (eco_url or "").rstrip("/").rsplit("/", 1)[-1]
+    words = []
+    for token in slug.split("-"):
+        if not token or _ECO_URL_MOVE_TOKEN_RE.match(token):
+            break
+        words.append(_ECO_URL_POSSESSIVE_FIXUPS.get(token, token))
+    return " ".join(words) if words else None
+
+
 def my_records(
     records: list[MoveRecord], white_name: str, black_name: str, my_name: str
 ) -> list[tuple[int, MoveRecord]]:

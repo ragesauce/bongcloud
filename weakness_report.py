@@ -16,6 +16,7 @@ being folded into the same report.
 from __future__ import annotations
 
 import threading
+import time
 from collections import Counter
 from dataclasses import dataclass
 from typing import Callable, Optional
@@ -44,6 +45,7 @@ from PySide6.QtWidgets import (
 import player_identity
 from chesscom_import_dialog import ChessComImportDialog
 from engine_analysis import AUTO_ANALYZE_THRESHOLD, DEFAULT_LIMIT, FAST_LIMIT, analyze_games, find_engine
+from eta_format import format_eta
 from pgn_loader import MoveRecord, _build_records, game_has_eval_annotations, my_records, read_games
 from scoresheet import game_accuracy, win_percent_for_mover
 from summary_dialog import _CLASS_COLORS, _CLASS_ORDER
@@ -256,6 +258,9 @@ class WeaknessReportDialog(QDialog):
 
         self.progress_dialog: Optional[QProgressDialog] = None
         self.analysis_worker: Optional[_BatchAnalysisWorker] = None
+        self._batch_move_counts: list[int] = []
+        self._batch_total_moves = 1
+        self._batch_start_time = 0.0
         self._pending_annotated: list[_GameEntry] = []
         self._pending_raw: list[tuple[str, int, "chess.pgn.Game"]] = []
         self._pending_known_name: Optional[str] = None
@@ -398,6 +403,13 @@ class WeaknessReportDialog(QDialog):
 
         limit = FAST_LIMIT if fast else DEFAULT_LIMIT
         games_only = [g for _, _, g in raw]
+        # Precomputed once up front (cheap - no engine calls) so progress can
+        # be measured in moves across the *whole* batch rather than just the
+        # current game - games vary too much in length for a per-game
+        # fraction to give a stable time-remaining estimate.
+        self._batch_move_counts = [len(list(g.mainline())) for g in games_only]
+        self._batch_total_moves = sum(self._batch_move_counts) or 1
+        self._batch_start_time = time.monotonic()
         self.analysis_worker = _BatchAnalysisWorker(games_only, engine_path, limit)
         self.analysis_worker.progress.connect(self._on_batch_progress)
         self.analysis_worker.finished_ok.connect(self._on_batch_finished)
@@ -415,8 +427,10 @@ class WeaknessReportDialog(QDialog):
         # before this call returns - re-check before touching it again.
         dialog.setValue(games_done)
         if self.progress_dialog is not None:
+            cumulative_done = sum(self._batch_move_counts[:games_done]) + moves_done
+            eta = format_eta(self._batch_start_time, cumulative_done, self._batch_total_moves)
             dialog.setLabelText(
-                f"Analyzing game {games_done + 1}/{games_total} (move {moves_done}/{moves_total})..."
+                f"Analyzing game {games_done + 1}/{games_total} (move {moves_done}/{moves_total})...{eta}"
             )
 
     def _on_batch_finished(self, results: list):
