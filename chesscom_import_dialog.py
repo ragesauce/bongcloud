@@ -167,7 +167,7 @@ class ChessComImportDialog(QDialog):
 
         self.lookback_combo = QComboBox()
         self.lookback_combo.addItems(list(LOOKBACK_DELTA_OPTIONS.keys()) + list(LOOKBACK_OPTIONS.keys()))
-        self.lookback_combo.setCurrentText("Last 24 hours")
+        self.lookback_combo.setCurrentText("Last month")
 
         filters_row = QHBoxLayout()
         filters_row.addWidget(self.rated_check)
